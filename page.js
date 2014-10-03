@@ -3,8 +3,9 @@ $(function() {
         quizTable = client.getTable('QuizDefinitions'), 
 		questionsTable = client.getTable('QuestionDefinitions'),
 		answersTable = client.getTable('AnswerDefinitions');
+		resultsTable = client.getTable("MobileResults");
 
-		var questions = [],current=0,answers = [];
+		var questions = [],current=0,answers = [],userName,sessionId;
 		
     // Read current data and rebuild UI.
     // If you plan to generate complex UIs like this, consider using a JavaScript templating library.
@@ -19,7 +20,9 @@ $(function() {
                     .append($('<div>').append($('<label class="item-text">').text(item.Name)));
             });
 
-            $('#quizzes').empty().append(listItems).toggle(listItems.length > 0);
+			var nameDiv = $("<div>").append($('<label for="txtName">').text("Naam:")).append("<input type='text' id='txtName'>");
+			
+            $('#quizzes').empty().append(nameDiv).append(listItems).toggle(listItems.length > 0);
             $('#summary').html('<strong>' + quizDefinition.length + '</strong> item(s)');
         }, handleError);
     }
@@ -65,6 +68,9 @@ $(function() {
 	
       // Handle start
     $(document.body).on('click', '.quiz-start', function () {
+		userName = $("#txtName").val();
+		sessionId = newGuid();
+		
 		var quizId = getQuizDefId(this);
 		 var query = questionsTable.where({ quiz_id: quizId }).read().then(function(results) {
 			for (i = 0; i < results.length; i++) { 
@@ -76,9 +82,24 @@ $(function() {
        
     });
 
+	function newGuid(){
+		return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+		var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+			return v.toString(16);
+		});
+	}
+	
 	function finalizeQuiz(){
 		// foreach answer --> write to table
-		
+		for(i=0;i<answers.length;i++) {
+			resultsTable.insert({
+				username: userName,
+				sessionid: sessionId,
+				questionid: answers[0].questionid,
+				answerid: answers[0].answerid
+			});
+		};
+				
 		$('#questionContainer').empty().append("Bedankt om de quiz te vervolledigen");
 		$('#summary').html("Einde");
 	}
@@ -90,7 +111,8 @@ $(function() {
 		}
 		
 		var answerId=$("input[type=radio]:checked")[0].value;
-		answers[questions[current].Id] = answerId;
+		answers.push({questionid:questions[current].Id,
+		answerid:answerId});
 	
 		if(current == questions.length-1){
 			//finalize
